@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, fs::File, io::{BufReader, BufRead}};
+use std::{
+    collections::VecDeque,
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
 struct Labyrith {
     inner: Vec<Vec<char>>,
@@ -7,7 +11,7 @@ struct Labyrith {
     start: (usize, usize),
     goal: (usize, usize),
 }
-
+#[derive(Debug)]
 struct Field {
     row: usize,
     col: usize,
@@ -51,12 +55,13 @@ impl Labyrith {
             print_matrix(&self.inner, &self.visited);
             let mut possible_next = self.check_surounding(field);
             while let Some(n) = possible_next.pop() {
-                if n.row == self.goal.0 && n.col == self.goal.1 {
+                if n.value == 'a' {
                     return Some(n.steps_from_start);
                 }
                 self.priority_que.push_back(n)
             }
         }
+        print_matrix(&self.inner, &self.visited);
         None
     }
 
@@ -67,7 +72,7 @@ impl Labyrith {
             if let Some(up) = self.inner.get(field_of_interest.row - 1) {
                 if !self.visited[field_of_interest.row - 1][field_of_interest.col] {
                     let c = *up.get(field_of_interest.col).unwrap();
-                    if (field_of_interest.value as u8).abs_diff(c as u8) <= 1 {
+                    if (field_of_interest.value as i16) - (c as i16) <= 1 {
                         v.push(Field::new(
                             field_of_interest.row - 1,
                             field_of_interest.col,
@@ -83,7 +88,7 @@ impl Labyrith {
         if let Some(down) = self.inner.get(field_of_interest.row + 1) {
             if !self.visited[field_of_interest.row + 1][field_of_interest.col] {
                 let c = *down.get(field_of_interest.col).unwrap();
-                if (field_of_interest.value as u8).abs_diff(c as u8) <= 1 {
+                if (field_of_interest.value as i16) - (c as i16) <= 1 {
                     v.push(Field::new(
                         field_of_interest.row + 1,
                         field_of_interest.col,
@@ -105,7 +110,7 @@ impl Labyrith {
                 .unwrap()
                 .get(field_of_interest.col - 1)
             {
-                if (field_of_interest.value as u8).abs_diff(*left as u8) <= 1 {
+                if (field_of_interest.value as i16) - (*left as i16) <= 1 {
                     v.push(Field::new(
                         field_of_interest.row,
                         field_of_interest.col - 1,
@@ -124,7 +129,7 @@ impl Labyrith {
             .get(field_of_interest.col + 1)
         {
             if !self.visited[field_of_interest.row][field_of_interest.col + 1] {
-                if (field_of_interest.value as u8).abs_diff(*right as u8) <= 1 {
+                if (field_of_interest.value as i16) - (*right as i16) <= 1 {
                     v.push(Field::new(
                         field_of_interest.row,
                         field_of_interest.col + 1,
@@ -147,7 +152,6 @@ fn print_matrix(m: &Vec<Vec<char>>, v: &Vec<Vec<bool>>) {
                 true => print!("\x1b[93m{}\x1b[0m", c),
                 false => print!("{}", *c),
             }
-            
         }
         println!()
     }
@@ -155,13 +159,18 @@ fn print_matrix(m: &Vec<Vec<char>>, v: &Vec<Vec<bool>>) {
 
 fn main() {
     let (field, start, goal) = parse_file("./input.txt");
-    let mut finder = Labyrith::new(field,  goal.unwrap(), start.unwrap());
+    let mut finder = Labyrith::new(field, goal.unwrap(), start.unwrap());
     let result = finder.start_pathfinding();
     print!("{result:?}");
-    
 }
 
-fn parse_file(filename: &str) -> (Vec<Vec<char>>, Option<(usize, usize)>, Option<(usize, usize)>) {
+fn parse_file(
+    filename: &str,
+) -> (
+    Vec<Vec<char>>,
+    Option<(usize, usize)>,
+    Option<(usize, usize)>,
+) {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
     let mut v: Vec<Vec<char>> = Vec::new();
@@ -177,13 +186,13 @@ fn parse_file(filename: &str) -> (Vec<Vec<char>>, Option<(usize, usize)>, Option
                 'S' => {
                     row.push('a');
                     start = Some((i, j))
-                },
+                }
                 'E' => {
                     row.push('z');
                     end = Some((i, j))
-                },
-                x => row.push(x)
-             }
+                }
+                x => row.push(x),
+            }
         }
         v.push(row);
     }
