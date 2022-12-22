@@ -1,9 +1,10 @@
 use std::{
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Point((i32, i32));
 
 impl Point {
@@ -50,7 +51,7 @@ impl Point {
 fn main() {
     let mut point_vec: Vec<(Point, Point)> = Vec::new();
 
-    let file = File::open("./test.txt").unwrap();
+    let file = File::open("./input.txt").unwrap();
 
     let reader = BufReader::new(file);
 
@@ -104,33 +105,93 @@ fn main() {
         point_vec.push((Point::new(s_x, s_y), Point::new(b_x, b_y)));
     }
 
+    find_beacon(&point_vec);
+}
+
+fn find_beacon(point_vec: &Vec<(Point, Point)>) {
+    let mut coverage_map: HashMap<i32, Vec<(i32, i32)>> = HashMap::with_capacity(4000000);
+    for (sensor, beacon) in point_vec {
+        let range = manhatten_dist(*sensor, *beacon);
+
+        let mut line = sensor.0 .1 - range;
+
+        let mut current_coverage = 1;
+
+        while line < 0 {
+            line += 1;
+            if line <= sensor.0 .0 {
+                current_coverage += 2
+            } else {
+                current_coverage -= 2
+            }
+        }
+
+        while current_coverage > 0 {
+            coverage_map
+                .entry(line)
+                .and_modify(|el| {
+                    el.push((
+                        sensor.0 .0 - current_coverage / 2,
+                        sensor.0 .0 + current_coverage / 2,
+                    ));
+
+                    el.sort_by(|a, b| a.0.cmp(&b.0));
+
+                    let tmp = merge_ranges(el);
+
+                    *el = tmp;
+                })
+                .or_insert(vec![(
+                    sensor.0 .0 - current_coverage / 2,
+                    sensor.0 .0 + current_coverage / 2,
+                )]);
+            line += 1;
+            if line <= sensor.0 .1 {
+                current_coverage += 2;
+            } else {
+                current_coverage -= 2;
+            }
+        }
+    }
+
+    coverage_map
+        .iter()
+        .filter(|(el, v)| v.len() != 1 && **el <= 4000000 && **el >= 0)
+        .for_each(|(el, v)| println!("{el}: {v:?}"))
+}
+
+fn calc_coverage_of_line(point_vec: &Vec<(Point, Point)>, line: i32) -> usize {
     let mut covered_ranges_in_line: Vec<(i32, i32)> = point_vec
         .iter()
+        .copied()
         .map(|(sensor, beacon)| {
-            let manhatten = manhatten_dist(*sensor, *beacon);
-            sensor.calculate_coverage_of_line(10, manhatten)
+            let manhatten = manhatten_dist(sensor, beacon);
+            sensor.calculate_coverage_of_line(line, manhatten)
         })
         .filter(|coverage| coverage.0 != 0 && coverage.1 != 0)
         .collect();
 
     covered_ranges_in_line.sort_by(|a, b| a.0.cmp(&b.0));
 
-    println!("{covered_ranges_in_line:?}");
-
     let merged = merge_ranges(&covered_ranges_in_line);
 
-    let correction = point_vec.iter().fold(0, |acc, &el| {
-        println!("{el:?}");
-        if el.1 .0 .1 == 10 || el.0 .0 .1 == 10 {
-            acc + 1
-        } else {
-            acc
+    println!("{merged:?}");
+
+    let mut s_b_in_line = HashSet::new();
+
+    for (s, b) in point_vec {
+        if s.0 .1 == line {
+            s_b_in_line.insert(s);
         }
-    });
+        if b.0 .1 == line {
+            s_b_in_line.insert(b);
+        }
+    }
+    let c = merged
+        .iter()
+        .fold(0, |acc, &range| acc + (range.0..=range.1).count());
 
-    println!("{correction}");
-
-    println!("{merged:?}")
+    c - s_b_in_line.len()
 }
 
 fn merge_ranges(range_vec: &Vec<(i32, i32)>) -> Vec<(i32, i32)> {
@@ -140,12 +201,13 @@ fn merge_ranges(range_vec: &Vec<(i32, i32)>) -> Vec<(i32, i32)> {
     for r in range_vec {
         match merge_item {
             Some(range) => {
-                if range.1 >= r.0 {
+                if range.1 >= r.0 || range.1.abs_diff(r.0) <= 1 {
                     if range.1 < r.1 {
                         merge_item = Some((range.0, r.1));
                     }
                 } else {
-                    merged_vec.push(merge_item.take().unwrap())
+                    merged_vec.push(merge_item.take().unwrap());
+                    merge_item = Some(*r)
                 }
             }
             None => merge_item = Some(*r),
