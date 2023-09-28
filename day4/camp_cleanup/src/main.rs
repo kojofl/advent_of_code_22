@@ -4,33 +4,78 @@ use std::{
     ops::RangeInclusive,
 };
 
+trait ExtensiveRange {
+    fn contains_range(&self, other: &Self) -> bool;
+    fn overlap(&self, other: &Self) -> bool;
+}
+
+impl<T: PartialOrd> ExtensiveRange for RangeInclusive<T> {
+    fn contains_range(&self, other: &Self) -> bool {
+        self.contains(other.start()) && self.contains(other.end())
+    }
+
+    fn overlap(&self, other: &Self) -> bool {
+        self.contains(other.start()) || self.contains(other.end())
+    }
+}
+
 fn main() {
     let input_file = File::open("./input.txt").expect("Input file not found!");
     let reader = BufReader::new(input_file);
 
-    let mut vector: Vec<(RangeInclusive<usize>, RangeInclusive<usize>)> = Vec::new();
-
-    for line in reader.lines() {
+    let overlapping = reader.lines().fold((0, 0), |acc, line| {
         let Ok(line) = line else {
-            continue;
+            return acc;
         };
         let mut a_b = line.split(",");
         let mut a_range = a_b.next().unwrap().split("-");
         let mut b_range = a_b.next().unwrap().split("-");
-        vector.push((
-            (a_range.next().unwrap().parse().unwrap()..=a_range.next().unwrap().parse().unwrap()),
-            (b_range.next().unwrap().parse().unwrap()..=b_range.next().unwrap().parse().unwrap()),
-        ))
-    }
-
-    let overlapping = vector.into_iter().fold(0, |mut acc, (range_a, range_b)| {
-        if (range_a.contains(range_b.start()) || range_a.contains(range_b.end()))
-            || (range_b.contains(range_a.start()) || range_b.contains(range_a.end()))
-        {
-            acc += 1;
+        let a_range = a_range.next().unwrap().parse::<i32>().unwrap()
+            ..=a_range.next().unwrap().parse::<i32>().unwrap();
+        let b_range = b_range.next().unwrap().parse::<i32>().unwrap()
+            ..=b_range.next().unwrap().parse::<i32>().unwrap();
+        if a_range.contains_range(&b_range) || b_range.contains_range(&a_range) {
+            (acc.0 + 1, acc.1 + 1)
+        } else if a_range.overlap(&b_range) || b_range.overlap(&a_range) {
+            (acc.0 + 1, acc.1)
+        } else {
+            acc
         }
-        acc
     });
 
-    println!("{overlapping}")
+    println!("{overlapping:?}")
+}
+
+#[test]
+fn test() {
+    let mut v = Vec::with_capacity(13);
+
+    println!("{}", v.capacity());
+
+    v.push(1);
+
+    println!("{}", v.capacity());
+
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+    v.push(1);
+
+    println!("{}", v.capacity());
 }
